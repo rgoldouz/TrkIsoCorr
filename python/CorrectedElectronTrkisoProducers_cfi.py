@@ -4,5 +4,5 @@ CorrectedElectronTrkiso = cms.EDProducer('CorrectedElectronTrkisoProducers',
      # input collections
      electronsLabel = cms.InputTag('gedGsfElectrons'),
      generalTracksLabel= cms.InputTag('generalTracks'),
-     beamSpot = cms.InputTag('offlineBeamSpot')
+     beamSpotLabel = cms.InputTag('offlineBeamSpot')
 )

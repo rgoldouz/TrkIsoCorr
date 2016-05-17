@@ -4,14 +4,11 @@
 
 // system include files
 #include <memory>
-
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/stream/EDProducer.h"
-
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
-
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/Utilities/interface/StreamID.h"
 #include "DataFormats/EgammaCandidates/interface/GsfElectron.h"
@@ -23,10 +20,6 @@
 //
 // class declaration
 //
-
-using namespace std ;
-using namespace reco;
-using namespace edm ;
 
 class CorrectedElectronTrkisoProducers : public edm::stream::EDProducer<> {
    public:
@@ -46,9 +39,9 @@ class CorrectedElectronTrkisoProducers : public edm::stream::EDProducer<> {
 };
 CorrectedElectronTrkisoProducers::CorrectedElectronTrkisoProducers(const edm::ParameterSet& iConfig)
 {
-    electronCollectionToken_ =  consumes<View<reco::GsfElectron> > (iConfig.getParameter<InputTag>("electronsLabel"));
-    generalTracksToken_ = consumes<reco::TrackCollection> (iConfig.getParameter<InputTag>("generalTracksLabel"));
-    beamSpotToken_ = consumes<reco::BeamSpot>(iConfig.getParameter<InputTag>("beamSpot")) ;
+    electronCollectionToken_ =  consumes<edm::View<reco::GsfElectron> > (iConfig.getParameter<edm::InputTag>("electronsLabel"));
+    generalTracksToken_ = consumes<reco::TrackCollection> (iConfig.getParameter<edm::InputTag>("generalTracksLabel"));
+    beamSpotToken_ = consumes<reco::BeamSpot>(iConfig.getParameter<edm::InputTag>("beamSpotLabel")) ;
     produces<std::vector<reco::GsfElectron>>("");
 }
 
@@ -66,10 +59,11 @@ CorrectedElectronTrkisoProducers::~CorrectedElectronTrkisoProducers()
 void
 CorrectedElectronTrkisoProducers::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
-  Handle<TrackCollection> generalTracksHandle;
+  edm::Handle<reco::TrackCollection> generalTracksHandle;
   iEvent.getByToken(generalTracksToken_,generalTracksHandle);
   const reco::TrackCollection * TrackCollection = generalTracksHandle.product();
-  std::vector<int> algosToReject_ = {reco::TrackBase::jetCoreRegionalStep};
+  std::vector<int> algosToReject = {reco::TrackBase::jetCoreRegionalStep};
+  std::sort(algosToReject.begin(),algosToReject.end());
 
   edm::Handle<edm::View<reco::GsfElectron>> electronHandle ;
   iEvent.getByToken( electronCollectionToken_ , electronHandle) ;
@@ -81,34 +75,30 @@ CorrectedElectronTrkisoProducers::produce(edm::Event& iEvent, const edm::EventSe
 
   for (edm::View<reco::GsfElectron>::const_iterator gsfiter = electronHandle->begin(); gsfiter != electronHandle->end(); ++gsfiter) {	
 
-  reco::GsfElectron correctedEle(*gsfiter);
+  reco::GsfElectron CorrectedEle(*gsfiter);
 
-  double correctedtkiso03 = gsfiter->dr03TkSumPt();
-  float sc_energy = gsfiter->superCluster()->rawEnergy()+gsfiter->superCluster()->preshowerEnergy() ;
-  float sc_et     = sc_energy*sin(2.*atan(exp(-1.*gsfiter->superCluster()->eta()))) ;
-  if (sc_et> 90){
-    for ( reco::TrackCollection::const_iterator itrTr  = TrackCollection->begin() ;     itrTr != TrackCollection->end();        ++itrTr ) {
-      if (!(std::binary_search(algosToReject_.begin(),algosToReject_.end(),itrTr->algo()))) continue;
-      if (itrTr->pt()<0.7) continue;
-      double dzCut = fabs (itrTr->vz() - gsfiter->gsfTrack()->vz());
-      if (dzCut > 0.2 ) continue;
-      if (fabs(itrTr->dxy(beamspotHandle_->position()) ) > 999999999 ) continue;
-      double dr = ROOT::Math::VectorUtil::DeltaR(itrTr->momentum(),gsfiter->gsfTrack()->momentum ()) ;
-      double deta = itrTr->eta() - gsfiter->gsfTrack()->eta();
-      if(dr < 0.3 && dr>=0.015 && std::abs(deta) >=0.015 ) correctedtkiso03 -= itrTr->pt();
-    }
+  double CorrectedTrkIso03 = gsfiter->dr03TkSumPt();
+  for ( reco::TrackCollection::const_iterator itrTr  = TrackCollection->begin() ;     itrTr != TrackCollection->end();        ++itrTr ) {
+    if (!(std::binary_search(algosToReject.begin(),algosToReject.end(),itrTr->algo()))) continue;
+    if (itrTr->pt()<0.7) continue;
+    double dzCut = fabs (itrTr->vz() - gsfiter->gsfTrack()->vz());
+    if (dzCut > 0.2 ) continue;
+    if (fabs(itrTr->dxy(beamspotHandle_->position()) ) > 999999999 ) continue;
+    double dr = ROOT::Math::VectorUtil::DeltaR(itrTr->momentum(),gsfiter->gsfTrack()->momentum ()) ;
+    double deta = itrTr->eta() - gsfiter->gsfTrack()->eta();
+    if(dr < 0.3 && dr>=0.015 && std::abs(deta) >=0.015 ) CorrectedTrkIso03 -= itrTr->pt();
   }
-  correctedtkiso03 = (correctedtkiso03<=0) ? 0 : correctedtkiso03;
+  CorrectedTrkIso03 = (CorrectedTrkIso03<=0) ? 0 : CorrectedTrkIso03;
   reco::GsfElectron::IsolationVariables dr03;
-  dr03.tkSumPt = correctedtkiso03;
+  dr03.tkSumPt = CorrectedTrkIso03;
   dr03.hcalDepth1TowerSumEt = gsfiter->dr03HcalDepth1TowerSumEt() ;
   dr03.hcalDepth2TowerSumEt = gsfiter->dr03HcalDepth2TowerSumEt();
   dr03.hcalDepth1TowerSumEtBc = gsfiter->dr03HcalDepth1TowerSumEtBc() ;
   dr03.hcalDepth2TowerSumEtBc = gsfiter->dr03HcalDepth2TowerSumEtBc() ;
   dr03.ecalRecHitSumEt = gsfiter->dr03EcalRecHitSumEt() ;
-  correctedEle.setIsolation03(dr03);
+  CorrectedEle.setIsolation03(dr03);
 
-  prod->push_back(reco::GsfElectron(correctedEle));
+  prod->push_back(reco::GsfElectron(CorrectedEle));
 
   }
 
