@@ -25,8 +25,8 @@ class CorrectedElectronTrkisoProducers : public edm::stream::EDProducer<> {
    public:
       explicit CorrectedElectronTrkisoProducers(const edm::ParameterSet&);
       ~CorrectedElectronTrkisoProducers();
-
       static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
+      std::vector<int> algosToReject_;
 
    private:
       virtual void beginStream(edm::StreamID) override;
@@ -62,8 +62,6 @@ CorrectedElectronTrkisoProducers::produce(edm::Event& iEvent, const edm::EventSe
   edm::Handle<reco::TrackCollection> generalTracksHandle;
   iEvent.getByToken(generalTracksToken_,generalTracksHandle);
   const reco::TrackCollection * TrackCollection = generalTracksHandle.product();
-  std::vector<int> algosToReject = {reco::TrackBase::jetCoreRegionalStep};
-  std::sort(algosToReject.begin(),algosToReject.end());
 
   edm::Handle<edm::View<reco::GsfElectron>> electronHandle ;
   iEvent.getByToken( electronCollectionToken_ , electronHandle) ;
@@ -79,7 +77,7 @@ CorrectedElectronTrkisoProducers::produce(edm::Event& iEvent, const edm::EventSe
 
   double CorrectedTrkIso03 = gsfiter->dr03TkSumPt();
   for ( reco::TrackCollection::const_iterator itrTr  = TrackCollection->begin() ;     itrTr != TrackCollection->end();        ++itrTr ) {
-    if (!(std::binary_search(algosToReject.begin(),algosToReject.end(),itrTr->algo()))) continue;
+    if (!(std::binary_search(algosToReject_.begin(),algosToReject_.end(),itrTr->algo()))) continue;
     if (itrTr->pt()<0.7) continue;
     double dzCut = fabs (itrTr->vz() - gsfiter->gsfTrack()->vz());
     if (dzCut > 0.2 ) continue;
@@ -109,6 +107,8 @@ CorrectedElectronTrkisoProducers::produce(edm::Event& iEvent, const edm::EventSe
 void
 CorrectedElectronTrkisoProducers::beginStream(edm::StreamID)
 {
+  algosToReject_ = {reco::TrackBase::jetCoreRegionalStep};
+  std::sort(algosToReject_.begin(),algosToReject_.end());
 }
 
 // ------------ method called once each stream after processing all runs, lumis and events  ------------
