@@ -2,44 +2,12 @@
 // Original Author:  Reza Goldouzian
 //         Created:  Tue, 10 May 2016 20:33:32 GMT
 
-// system include files
-#include <memory>
-// user include files
-#include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/stream/EDProducer.h"
-#include "FWCore/Framework/interface/Event.h"
-#include "FWCore/Framework/interface/MakerMacros.h"
-#include "FWCore/ParameterSet/interface/ParameterSet.h"
-#include "FWCore/Utilities/interface/StreamID.h"
-#include "DataFormats/EgammaCandidates/interface/GsfElectron.h"
-#include "FWCore/Framework/interface/ConsumesCollector.h"
-#include "DataFormats/TrackReco/interface/TrackBase.h"
-#include "DataFormats/TrackReco/interface/Track.h"
-#include "DataFormats/GsfTrackReco/interface/GsfTrack.h" 
-#include <Math/VectorUtil.h>
-//
-// class declaration
-//
+#include "TrkIsoCorr/CorrectedElectronTrkisoProducers/interface/ElectronTkIsolationCorr.h"
+#include "TrkIsoCorr/CorrectedElectronTrkisoProducers/interface/CorrectedElectronTrkisoProducers.h"
 
-class CorrectedElectronTrkisoProducers : public edm::stream::EDProducer<> {
-   public:
-      explicit CorrectedElectronTrkisoProducers(const edm::ParameterSet&);
-      ~CorrectedElectronTrkisoProducers();
-      static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
-      std::vector<int> algosToReject_;
-
-   private:
-      virtual void beginStream(edm::StreamID) override;
-      virtual void produce(edm::Event&, const edm::EventSetup&) override;
-      virtual void endStream() override;
-      edm::EDGetTokenT<reco::TrackCollection>       generalTracksToken_;
-      edm::EDGetTokenT<edm::View<reco::GsfElectron> > electronCollectionToken_;
-      edm::EDGetTokenT<reco::BeamSpot> beamSpotToken_ ;
-      // ----------member data ---------------------------
-};
 CorrectedElectronTrkisoProducers::CorrectedElectronTrkisoProducers(const edm::ParameterSet& iConfig)
 {
-    electronCollectionToken_ =  consumes<edm::View<reco::GsfElectron> > (iConfig.getParameter<edm::InputTag>("electronsLabel"));
+    electronCollectionToken_ =  consumes<reco::GsfElectronCollection> (iConfig.getParameter<edm::InputTag>("electronsLabel"));
     generalTracksToken_ = consumes<reco::TrackCollection> (iConfig.getParameter<edm::InputTag>("generalTracksLabel"));
     beamSpotToken_ = consumes<reco::BeamSpot>(iConfig.getParameter<edm::InputTag>("beamSpotLabel")) ;
     produces<std::vector<reco::GsfElectron>>("");
@@ -63,18 +31,21 @@ CorrectedElectronTrkisoProducers::produce(edm::Event& iEvent, const edm::EventSe
   iEvent.getByToken(generalTracksToken_,generalTracksHandle);
   const reco::TrackCollection * TrackCollection = generalTracksHandle.product();
 
-  edm::Handle<edm::View<reco::GsfElectron>> electronHandle ;
+  edm::Handle<reco::GsfElectronCollection> electronHandle ;
   iEvent.getByToken( electronCollectionToken_ , electronHandle) ;
+  const reco::GsfElectronCollection * GsfElectronCollection = electronHandle.product();
 
   edm::Handle<reco::BeamSpot> beamspotHandle_ ;
   iEvent.getByToken(beamSpotToken_, beamspotHandle_) ;
 
   std::auto_ptr<std::vector<reco::GsfElectron> > prod(new std::vector<reco::GsfElectron>());
 
-  for (edm::View<reco::GsfElectron>::const_iterator gsfiter = electronHandle->begin(); gsfiter != electronHandle->end(); ++gsfiter) {	
+  ElectronTkIsolationCorr EleTkIsolationCorr(0.3,TrackCollection,&(*beamspotHandle_));
+
+  for (reco::GsfElectronCollection::const_iterator gsfiter = GsfElectronCollection->begin(); gsfiter != GsfElectronCollection->end(); ++gsfiter) {	
 
   reco::GsfElectron CorrectedEle(*gsfiter);
-
+/*
   double CorrectedTrkIso03 = gsfiter->dr03TkSumPt();
   for ( reco::TrackCollection::const_iterator itrTr  = TrackCollection->begin() ;     itrTr != TrackCollection->end();        ++itrTr ) {
     if (!(std::binary_search(algosToReject_.begin(),algosToReject_.end(),itrTr->algo()))) continue;
@@ -86,9 +57,10 @@ CorrectedElectronTrkisoProducers::produce(edm::Event& iEvent, const edm::EventSe
     double deta = itrTr->eta() - gsfiter->gsfTrack()->eta();
     if(dr < 0.3 && dr>=0.015 && std::abs(deta) >=0.015 ) CorrectedTrkIso03 -= itrTr->pt();
   }
-  CorrectedTrkIso03 = (CorrectedTrkIso03<=0) ? 0 : CorrectedTrkIso03;
+*/
+//  CorrectedTrkIso03 = (CorrectedTrkIso03<=0) ? 0 : CorrectedTrkIso03;
   reco::GsfElectron::IsolationVariables dr03;
-  dr03.tkSumPt = CorrectedTrkIso03;
+  dr03.tkSumPt = EleTkIsolationCorr.getCorrectedTrkIso(&(*gsfiter));
   dr03.hcalDepth1TowerSumEt = gsfiter->dr03HcalDepth1TowerSumEt() ;
   dr03.hcalDepth2TowerSumEt = gsfiter->dr03HcalDepth2TowerSumEt();
   dr03.hcalDepth1TowerSumEtBc = gsfiter->dr03HcalDepth1TowerSumEtBc() ;
@@ -107,8 +79,6 @@ CorrectedElectronTrkisoProducers::produce(edm::Event& iEvent, const edm::EventSe
 void
 CorrectedElectronTrkisoProducers::beginStream(edm::StreamID)
 {
-  algosToReject_ = {reco::TrackBase::jetCoreRegionalStep};
-  std::sort(algosToReject_.begin(),algosToReject_.end());
 }
 
 // ------------ method called once each stream after processing all runs, lumis and events  ------------
