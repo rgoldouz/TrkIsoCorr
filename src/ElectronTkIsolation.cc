@@ -33,7 +33,7 @@ bool ElectronTkIsolationCorr::passAlgo(const reco::TrackBase& trk)const
 
 double ElectronTkIsolationCorr::correctedTrkIso(const reco::GsfElectron* electron) const
 {
-  double CorrectedTrkIso03 = electron->dr03TkSumPt();
+  double correctedTrkIso03 = electron->dr03TkSumPt();
   for ( reco::TrackCollection::const_iterator itrTr  = trackCollection_->begin() ;     itrTr != trackCollection_->end();        ++itrTr ) {
     if (passAlgo(*itrTr)) continue;
     if (itrTr->pt()<0.7) continue;
@@ -42,9 +42,9 @@ double ElectronTkIsolationCorr::correctedTrkIso(const reco::GsfElectron* electro
     if (fabs(itrTr->dxy(beamPoint_->position()) ) > 999999999 ) continue;
     double dr = ROOT::Math::VectorUtil::DeltaR(itrTr->momentum(),electron->gsfTrack()->momentum ()) ;
     double deta = itrTr->eta() - electron->gsfTrack()->eta();
-    if(dr < extRadius_ && dr>=0.015 && std::abs(deta) >=0.015 ) CorrectedTrkIso03 -= itrTr->pt();
+    if(dr < extRadius_ && dr>=0.015 && std::abs(deta) >=0.015 ) correctedTrkIso03 -= itrTr->pt();
   }
-  return (CorrectedTrkIso03<=0) ? 0 : CorrectedTrkIso03;
+  return (correctedTrkIso03<=0) ? 0 : correctedTrkIso03;
 }
 
 double ElectronTkIsolationCorr::getCorrectedTrkIso(const reco::GsfElectron* electron) const

@@ -29,47 +29,33 @@ CorrectedElectronTrkisoProducers::produce(edm::Event& iEvent, const edm::EventSe
 {
   edm::Handle<reco::TrackCollection> generalTracksHandle;
   iEvent.getByToken(generalTracksToken_,generalTracksHandle);
-  const reco::TrackCollection * TrackCollection = generalTracksHandle.product();
+  const reco::TrackCollection * generalTrackCollection = generalTracksHandle.product();
 
   edm::Handle<reco::GsfElectronCollection> electronHandle ;
   iEvent.getByToken( electronCollectionToken_ , electronHandle) ;
-  const reco::GsfElectronCollection * GsfElectronCollection = electronHandle.product();
+  const reco::GsfElectronCollection * gsfElectronCollection = electronHandle.product();
 
-  edm::Handle<reco::BeamSpot> beamspotHandle_ ;
-  iEvent.getByToken(beamSpotToken_, beamspotHandle_) ;
+  edm::Handle<reco::BeamSpot> beamSpotHandle ;
+  iEvent.getByToken(beamSpotToken_, beamSpotHandle) ;
 
   std::auto_ptr<std::vector<reco::GsfElectron> > prod(new std::vector<reco::GsfElectron>());
 
-  ElectronTkIsolationCorr EleTkIsolationCorr(0.3,TrackCollection,&(*beamspotHandle_));
+  ElectronTkIsolationCorr electronTkIsolationCorr(0.3,generalTrackCollection,&(*beamSpotHandle));
 
-  for (reco::GsfElectronCollection::const_iterator gsfiter = GsfElectronCollection->begin(); gsfiter != GsfElectronCollection->end(); ++gsfiter) {	
+  for (reco::GsfElectronCollection::const_iterator gsfiter = gsfElectronCollection->begin(); gsfiter != gsfElectronCollection->end(); ++gsfiter) {	
 
-  reco::GsfElectron CorrectedEle(*gsfiter);
-/*
-  double CorrectedTrkIso03 = gsfiter->dr03TkSumPt();
-  for ( reco::TrackCollection::const_iterator itrTr  = TrackCollection->begin() ;     itrTr != TrackCollection->end();        ++itrTr ) {
-    if (!(std::binary_search(algosToReject_.begin(),algosToReject_.end(),itrTr->algo()))) continue;
-    if (itrTr->pt()<0.7) continue;
-    double dzCut = fabs (itrTr->vz() - gsfiter->gsfTrack()->vz());
-    if (dzCut > 0.2 ) continue;
-    if (fabs(itrTr->dxy(beamspotHandle_->position()) ) > 999999999 ) continue;
-    double dr = ROOT::Math::VectorUtil::DeltaR(itrTr->momentum(),gsfiter->gsfTrack()->momentum ()) ;
-    double deta = itrTr->eta() - gsfiter->gsfTrack()->eta();
-    if(dr < 0.3 && dr>=0.015 && std::abs(deta) >=0.015 ) CorrectedTrkIso03 -= itrTr->pt();
-  }
-*/
-//  CorrectedTrkIso03 = (CorrectedTrkIso03<=0) ? 0 : CorrectedTrkIso03;
-  reco::GsfElectron::IsolationVariables dr03;
-  dr03.tkSumPt = EleTkIsolationCorr.getCorrectedTrkIso(&(*gsfiter));
-  dr03.hcalDepth1TowerSumEt = gsfiter->dr03HcalDepth1TowerSumEt() ;
-  dr03.hcalDepth2TowerSumEt = gsfiter->dr03HcalDepth2TowerSumEt();
-  dr03.hcalDepth1TowerSumEtBc = gsfiter->dr03HcalDepth1TowerSumEtBc() ;
-  dr03.hcalDepth2TowerSumEtBc = gsfiter->dr03HcalDepth2TowerSumEtBc() ;
-  dr03.ecalRecHitSumEt = gsfiter->dr03EcalRecHitSumEt() ;
-  CorrectedEle.setIsolation03(dr03);
+    reco::GsfElectron correctedElectron(*gsfiter);
 
-  prod->push_back(reco::GsfElectron(CorrectedEle));
+    reco::GsfElectron::IsolationVariables dr03;
+    dr03.tkSumPt = electronTkIsolationCorr.getCorrectedTrkIso(&(*gsfiter));
+    dr03.hcalDepth1TowerSumEt = gsfiter->dr03HcalDepth1TowerSumEt() ;
+    dr03.hcalDepth2TowerSumEt = gsfiter->dr03HcalDepth2TowerSumEt();
+    dr03.hcalDepth1TowerSumEtBc = gsfiter->dr03HcalDepth1TowerSumEtBc() ;
+    dr03.hcalDepth2TowerSumEtBc = gsfiter->dr03HcalDepth2TowerSumEtBc() ;
+    dr03.ecalRecHitSumEt = gsfiter->dr03EcalRecHitSumEt() ;
+    correctedElectron.setIsolation03(dr03);
 
+    prod->push_back(reco::GsfElectron(correctedElectron));
   }
 
   iEvent.put(prod);
