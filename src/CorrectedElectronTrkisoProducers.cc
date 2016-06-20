@@ -45,7 +45,6 @@ CorrectedElectronTrkisoProducers::produce(edm::Event& iEvent, const edm::EventSe
   for (reco::GsfElectronCollection::const_iterator gsfiter = gsfElectronCollection->begin(); gsfiter != gsfElectronCollection->end(); ++gsfiter) {	
 
     reco::GsfElectron correctedElectron(*gsfiter);
-
     reco::GsfElectron::IsolationVariables dr03;
     dr03.tkSumPt = electronTkIsolationCorr.getCorrectedTrkIso(&(*gsfiter));
     dr03.hcalDepth1TowerSumEt = gsfiter->dr03HcalDepth1TowerSumEt() ;
